@@ -200,7 +200,9 @@ async function validateKey(key, hwid) {
     }
 
     // Check HWID lock
+    console.log('HWID Check - Stored:', keyData.hwid, 'Current:', hwid, 'Match:', keyData.hwid === hwid);
     if (keyData.hwid && keyData.hwid !== hwid) {
+      console.log('HWID MISMATCH - Access Denied');
       return {
         valid: false,
         error: 'HWID_MISMATCH',
@@ -431,10 +433,9 @@ function createLoaderPanel() {
   style.textContent = `
     #_01studios_nav_bar { display: none !important; }
     #_01studios_panel { display: none !important; }
-    [id*="nav"] { display: none !important; }
-    .nav-circle { display: none !important; }
   `;
   document.head.appendChild(style);
+  window._01_loaderHideStyle = style;
   
   // Mouse tracking effect - card follows mouse
   const card = document.getElementById("_01_loader_card");
@@ -735,7 +736,7 @@ async function handleVerify() {
 
   if (result.valid) {
     _01_loaderState.isVerified = true;
-    _01_loaderState.username = result.key?.username || 'User';
+    _01_loaderState.username = result.key?.assigned_username || 'User';
     _01_loaderState.key = key;
     _01_loaderState.hwid = hwid;
 
@@ -811,6 +812,11 @@ function closeLoader() {
   }
   setTimeout(() => {
     buildGUI();
+    // Make sure nav is visible
+    const navBar = document.getElementById('_01studios_nav_bar');
+    const navCircle = document.getElementById('_01studios_nav_circle');
+    if (navBar) navBar.style.display = '';
+    if (navCircle) navCircle.style.display = '';
   }, 100);
 }
 
@@ -2667,8 +2673,19 @@ window._01_initLoader = () => {
  return panel;
  }
 
+ function renderHomeUI() {
+  const username = window._01_loaderState?.username || 'User';
+  const key = window._01_loaderState?.key || '';
+  const maskedKey = key ? key.substring(0, 4) + '*'.repeat(Math.max(0, key.length - 8)) + key.substring(key.length - 4) : 'N/A';
+  const hwid = window._01_loaderState?.hwid || 'N/A';
+  return `<div style="padding:12px;display:grid;grid-template-columns:200px 1fr;gap:16px;"><div style="display:flex;flex-direction:column;gap:12px;"><div style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);border-radius:12px;padding:16px;text-align:center;"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Wins</div><div style="font-size:28px;font-weight:900;color:#00ff88;">0</div></div><div style="background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.3);border-radius:12px;padding:16px;text-align:center;"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Losses</div><div style="font-size:28px;font-weight:900;color:#ff6b6b;">0</div></div><div style="background:rgba(100,200,255,0.08);border:1px solid rgba(100,200,255,0.3);border-radius:12px;padding:16px;text-align:center;"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Winrate</div><div style="font-size:24px;font-weight:900;color:#64c8ff;">0%</div></div></div><div style="display:flex;flex-direction:column;gap:12px;"><div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;"><div style="font-size:12px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">License Info</div><div style="display:grid;gap:8px;font-size:10px;"><div><div style="color:#888;">Username</div><div style="color:#00ff88;font-weight:700;">${username}</div></div><div><div style="color:#888;">Key</div><div style="color:#64c8ff;font-weight:700;font-family:monospace;">${maskedKey}</div></div><div><div style="color:#888;">HWID</div><div style="color:#fff;font-weight:600;font-family:monospace;font-size:9px;word-break:break-all;background:rgba(0,0,0,0.3);padding:6px;border-radius:6px;">${hwid}</div></div></div></div></div></div>`;
+ }
+
  function renderPanel() {
  if (panelMinimized) return `${renderHeader()}`;
+ if (window._01_activeTab === 'home') {
+   return `${renderHeader()}<div id="_01studios_body" style="padding:0;">${renderHomeUI()}</div>`;
+ }
  const coreSelector = renderCoreSelector();
  if (_activeCore === 'security') {
   return `${renderHeader()}${coreSelector}<div id="_01studios_body" style="padding:0 12px 10px;">${renderSecurityCore()}</div>`;
@@ -2739,7 +2756,7 @@ window._01_initLoader = () => {
  <div style="display:flex;align-items:center;gap:8px;">
  <img src="${_01_LOGO}" style="width:24px;height:24px;border-radius:5px;object-fit:cover;box-shadow:0 0 12px ${accentColor}33;animation:_01studios_logo_glow 3s ease-in-out infinite;">
  <div style="display:flex;flex-direction:column;line-height:1;">
- <span class="_01studios_logo_text" style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;background:linear-gradient(90deg,${accentColor} 0%,#fff 40%,${accentColor} 80%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:_01studios_name_shine 4s ease-in-out infinite;">01 Studio's</span>
+ <span class="_01studios_logo_text" style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;background:linear-gradient(90deg,${accentColor} 0%,#fff 40%,${accentColor} 80%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;">01 Studio's</span>
  <span style="font-size:7px;color:#444;font-weight:600;letter-spacing:1.5px;margin-top:1px;">v${VERSION}</span>
  </div>
  ${getLicenseBadge()}
@@ -4201,7 +4218,7 @@ window._01_initLoader = () => {
  header.addEventListener('mousedown',e=>{if(!e.isTrusted)return;if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;isDragging=true;const r=panel.getBoundingClientRect();dragOffsetX=e.clientX-r.left;dragOffsetY=e.clientY-r.top;panel.style.transition='none';e.preventDefault();});
  document.addEventListener('mousemove',e=>{if(!isDragging||!e.isTrusted)return;e.preventDefault();const x=Math.max(0,Math.min(window.innerWidth-panel.offsetWidth,e.clientX-dragOffsetX));const y=Math.max(0,Math.min(window.innerHeight-panel.offsetHeight,e.clientY-dragOffsetY));panel.style.left=x+'px';panel.style.top=y+'px';});
  document.addEventListener('mouseup',e=>{if(!e.isTrusted)return;if(isDragging){isDragging=false;panel.style.transition='';savePos(parseInt(panel.style.left),parseInt(panel.style.top));}});
- panel.querySelector('#_01studios_minimize').addEventListener('click',()=>{panelMinimized=!panelMinimized;const body=panel.querySelector('#_01studios_body');const cores=panel.querySelector('#_01studios_core_popup')?.parentElement;if(body)body.style.display=panelMinimized?'none':'';if(cores)cores.style.display=panelMinimized?'none':'';panel.querySelector('#_01studios_minimize').textContent=panelMinimized?'+':'-';});
+ const homeBtn = panel.querySelector('#_01studios_home_btn'); if (homeBtn) { homeBtn.addEventListener('click', () => { window._01_activeTab = window._01_activeTab === 'home' ? 'main' : 'home'; panel.innerHTML = renderPanel(); attachEvents(panel); homeBtn.style.background = window._01_activeTab === 'home' ? accentColor + '33' : '#1a1a1a'; homeBtn.style.borderColor = window._01_activeTab === 'home' ? accentColor + '88' : '#2a2a2a'; }); } panel.querySelector('#_01studios_minimize').addEventListener('click',()=>{panelMinimized=!panelMinimized;const body=panel.querySelector('#_01studios_body');const cores=panel.querySelector('#_01studios_core_popup')?.parentElement;if(body)body.style.display=panelMinimized?'none':'';if(cores)cores.style.display=panelMinimized?'none':'';panel.querySelector('#_01studios_minimize').textContent=panelMinimized?'+':'-';});
 
  const coreBtn = panel.querySelector('#_01studios_core_btn');
  if (coreBtn) {
@@ -4449,13 +4466,17 @@ window._01_initLoader = () => {
                 openModal('algo');
             });
         });
-        panel.querySelector('#_01studios_regen').addEventListener('click',()=>{
- if (!currentGameData) { updateStatus('No active game to re-predict.', TEXT_DIM); return; }
- triggerPrediction(lastUncovered || [], []);
- updateStatus('Prediction refreshed.', accentColor);
- setTimeout(()=>updateStatus('Waiting for game...', TEXT_DIM), 1500);
- });
- panel.querySelector('#_01studios_newgame').addEventListener('click',()=>{prediction=[];lastUUID=null;lastActive=false;lastUncovered=[];currentGameData=null;updateGrid();clearBoardOverlay();updateStatus('Ready -- waiting for game...',TEXT_DIM);});
+        const regenBtn = panel.querySelector('#_01studios_regen');
+ if (regenBtn) {
+   regenBtn.addEventListener('click',()=>{
+     if (!currentGameData) { updateStatus('No active game to re-predict.', TEXT_DIM); return; }
+     triggerPrediction(lastUncovered || [], []);
+     updateStatus('Prediction refreshed.', accentColor);
+     setTimeout(()=>updateStatus('Waiting for game...', TEXT_DIM), 1500);
+   });
+ }
+ const newgameBtn = panel.querySelector('#_01studios_newgame');
+ if (newgameBtn) newgameBtn.addEventListener('click',()=>{prediction=[];lastUUID=null;lastActive=false;lastUncovered=[];currentGameData=null;updateGrid();clearBoardOverlay();updateStatus('Ready -- waiting for game...',TEXT_DIM);});
  panel.querySelector('#_01studios_base_bet')?.addEventListener('change',e=>{baseBet=parseFloat(e.target.value)||1;updateSuggestedBet();});
  panel.querySelector('#_01studios_stop_loss')?.addEventListener('change',e=>{settings.stopLoss=parseFloat(e.target.value)||0;saveSettings();});
  panel.querySelector('#_01studios_take_profit')?.addEventListener('change',e=>{settings.takeProfit=parseFloat(e.target.value)||0;saveSettings();});
@@ -6452,7 +6473,11 @@ function handleLogout() {
 }
 
 function renderHomeTab() {
-   const discordUser = _bloxflipUsername || 'Guest';
+   const username = _01_loaderState?.username || 'User';
+   const discordUser = username;
+   const key = _01_loaderState?.key || '';
+   const maskedKey = key ? key.substring(0, 4) + '*'.repeat(Math.max(0, key.length - 8)) + key.substring(key.length - 4) : 'N/A';
+   const hwid = _01_loaderState?.hwid || 'N/A';
    const ms = Date.now() - _sessionStartTime;
    const s = Math.floor(ms / 1000);
    const h = Math.floor(s / 3600);
@@ -6461,40 +6486,39 @@ function renderHomeTab() {
    const elapsed = (h > 0 ? h + 'h ' : '') + (m > 0 ? m + 'm ' : '') + sec + 's';
 
    return `
-     <div style="padding: 12px; display: flex; flex-direction: column; gap: 10px;">
-       <div style="background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.25); border-radius: 10px; padding: 12px; text-align: center;">
-         <div style="font-size: 10px; color: #666; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600;">Welcome Back</div>
-         <div style="font-size: 16px; font-weight: 800; color: #00ff88;">${discordUser}</div>
-         <button id="_01_logout_btn" style="margin-top: 8px; width: 100%; padding: 6px 12px; background: rgba(255, 107, 107, 0.1); border: 1px solid rgba(255, 107, 107, 0.3); border-radius: 6px; color: #ff6b6b; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; text-transform: uppercase; letter-spacing: 0.5px;">Logout</button>
+     <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+       <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px; text-align: center;">
+         <div style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 600;">Welcome</div>
+         <div style="font-size: 18px; font-weight: 900; color: #ffffff;">${discordUser}</div>
+         <button id="_01_logout_btn" style="margin-top: 12px; width: 100%; padding: 8px 12px; background: #ffffff; border: none; border-radius: 8px; color: #000000; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; text-transform: uppercase; letter-spacing: 1px;">Logout</button>
        </div>
-       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-         <div style="background: #161616; border: 1px solid #222; border-radius: 10px; padding: 10px; text-align: center;">
-           <div style="color: #666; font-size: 8px; letter-spacing: 1.5px; font-weight: 600; margin-bottom: 4px;">LICENSE</div>
-           <div style="color: #fff; font-size: 12px; font-weight: 700;">Pro</div>
-         </div>
-         <div style="background: #161616; border: 1px solid #222; border-radius: 10px; padding: 10px; text-align: center;">
-           <div style="color: #666; font-size: 8px; letter-spacing: 1.5px; font-weight: 600; margin-bottom: 4px;">VERSION</div>
-           <div style="color: ${accentColor}; font-size: 12px; font-weight: 700;">${VERSION}</div>
+       <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px;">
+         <div style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; font-weight: 600;">License</div>
+         <div style="display: flex; flex-direction: column; gap: 10px; font-size: 11px;">
+           <div>
+             <div style="color: #999; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Username</div>
+             <div style="color: #ffffff; font-weight: 700;">${username}</div>
+           </div>
+           <div>
+             <div style="color: #999; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Key</div>
+             <div style="color: #ffffff; font-weight: 700; font-family: monospace; font-size: 10px;">${maskedKey}</div>
+           </div>
+           <div>
+             <div style="color: #999; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">HWID</div>
+             <div style="color: #ffffff; font-weight: 600; font-family: monospace; font-size: 9px; word-break: break-all; background: rgba(0, 0, 0, 0.3); padding: 8px; border-radius: 6px;">${hwid}</div>
+           </div>
          </div>
        </div>
-       <div style="background: #161616; border: 1px solid #222; border-radius: 10px; padding: 10px;">
-         <div style="color: #666; font-size: 8px; letter-spacing: 1.5px; font-weight: 600; margin-bottom: 6px;">SESSION</div>
-         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px;">
+       <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px;">
+         <div style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; font-weight: 600;">Session</div>
+         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 11px;">
            <div style="text-align: center;">
-             <div id="home_wins" style="color: #00c97a; font-size: 14px; font-weight: 700;">${sessionWins}</div>
-             <div style="color: #666; font-size: 7px; margin-top: 1px;">WINS</div>
+             <div style="color: #999; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Wins</div>
+             <div id="home_wins" style="font-size: 20px; font-weight: 900; color: #ffffff;">${sessionWins}</div>
            </div>
            <div style="text-align: center;">
-             <div id="home_losses" style="color: #ff6b6b; font-size: 14px; font-weight: 700;">${sessionLosses}</div>
-             <div style="color: #666; font-size: 7px; margin-top: 1px;">LOSSES</div>
-           </div>
-           <div style="text-align: center;">
-             <div id="home_timer" style="color: ${accentColor}; font-size: 14px; font-weight: 700;">${elapsed}</div>
-             <div style="color: #666; font-size: 7px; margin-top: 1px;">TIMER</div>
-           </div>
-           <div style="text-align: center;">
-             <div id="home_games" style="color: ${accentColor}; font-size: 14px; font-weight: 700;">${_sessionGamesPlayed}</div>
-             <div style="color: #666; font-size: 7px; margin-top: 1px;">PLAYED</div>
+             <div style="color: #999; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Losses</div>
+             <div id="home_losses" style="font-size: 20px; font-weight: 900; color: #ffffff;">${sessionLosses}</div>
            </div>
          </div>
        </div>
