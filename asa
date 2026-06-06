@@ -348,26 +348,75 @@ function createLoaderPanel() {
   `;
 
   panel.innerHTML = `
-    <div style="
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-      border: 1px solid #222;
-      border-radius: 20px;
-      padding: 40px;
-      max-width: 400px;
+    <style>
+      @keyframes _01_loader_breathe {
+        0%, 100% { 
+          box-shadow: 0 0 20px rgba(255, 255, 255, 0.08), inset 0 0 20px rgba(255, 255, 255, 0.03);
+          border-color: rgba(255, 255, 255, 0.12);
+        }
+        50% { 
+          box-shadow: 0 0 40px rgba(255, 255, 255, 0.15), inset 0 0 30px rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+      }
+      @keyframes _01_loader_shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+      }
+      @keyframes _01_logo_glow {
+        0%, 100% { text-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
+        50% { text-shadow: 0 0 30px rgba(255, 255, 255, 0.6); }
+      }
+      @keyframes _01_logo_rotate {
+        0% { transform: rotateZ(0deg); }
+        100% { transform: rotateZ(360deg); }
+      }
+    </style>
+    <div id="_01_loader_card" style="
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      padding: 52px 44px;
+      max-width: 440px;
       width: 90%;
-      box-shadow: 0 20px 60px rgba(0, 255, 136, 0.1);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(255, 255, 255, 0.03);
+      position: relative;
+      z-index: 10001;
+      animation: _01_loader_breathe 4s ease-in-out infinite;
+      transition: transform 0.1s ease-out;
     ">
-      <div style="text-align: center; margin-bottom: 40px;">
-        <div style="
-          font-size: 32px;
+      <div style="text-align: center; margin-bottom: 48px;">
+        <div id="_01_logo" style="
+          font-size: 38px;
           font-weight: 900;
-          background: linear-gradient(135deg, #00ff88, #00c97a);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          margin-bottom: 10px;
+          color: #ffffff;
+          letter-spacing: 4px;
+          margin-bottom: 12px;
+          text-transform: uppercase;
+          font-family: 'Segoe UI', system-ui, sans-serif;
+          animation: _01_logo_glow 3s ease-in-out infinite;
+          cursor: pointer;
+          transition: all 0.3s ease;
         ">01 STUDIOS</div>
-        <div style="color: #888; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">Verification</div>
+        <div style="
+          height: 2px;
+          width: 80px;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+          margin: 18px auto;
+          animation: _01_loader_shimmer 3s infinite;
+          background-size: 1000px 100%;
+          border-radius: 1px;
+        "></div>
+        <div style="
+          color: #999; 
+          font-size: 11px; 
+          letter-spacing: 2.5px; 
+          text-transform: uppercase; 
+          font-weight: 500;
+          font-family: 'Segoe UI', system-ui, sans-serif;
+        ">Authentication</div>
       </div>
 
       <div id="_01_loader_content"></div>
@@ -375,6 +424,33 @@ function createLoaderPanel() {
   `;
 
   document.body.appendChild(panel);
+  
+  // Hide nav and other UI elements
+  const style = document.createElement('style');
+  style.id = '_01_loader_hide_style';
+  style.textContent = `
+    #_01studios_nav_bar { display: none !important; }
+    #_01studios_panel { display: none !important; }
+    [id*="nav"] { display: none !important; }
+    .nav-circle { display: none !important; }
+  `;
+  document.head.appendChild(style);
+  
+  // Mouse tracking effect - card follows mouse
+  const card = document.getElementById("_01_loader_card");
+  if (card) {
+    document.addEventListener("mousemove", (e) => {
+      const rect = card.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const distX = (e.clientX - centerX) * 0.05;
+      const distY = (e.clientY - centerY) * 0.05;
+      
+      card.style.transform = `translate(${distX}px, ${distY}px)`;
+    });
+  }
+  
   return panel;
 }
 
@@ -383,74 +459,202 @@ function showVerificationForm() {
 
   content.innerHTML = `
     <div>
-      <div style="margin-bottom: 20px;">
-        <label style="color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">Username</label>
-        <input id="_01_username_input" type="text" placeholder="Enter username" style="
+      <div style="margin-bottom: 24px;">
+        <label style="
+          color: #ccc; 
+          font-size: 10px; 
+          text-transform: uppercase; 
+          letter-spacing: 1.5px; 
+          display: block; 
+          margin-bottom: 10px; 
+          font-weight: 600;
+          font-family: 'Segoe UI', system-ui, sans-serif;
+        ">Username</label>
+        <input id="_01_username_input" type="text" placeholder="Enter your username" style="
           width: 100%;
-          padding: 12px;
-          background: #0a0a0a;
-          border: 1px solid #222;
-          border-radius: 8px;
-          color: #fff;
+          padding: 14px 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 10px;
+          color: #ffffff;
           font-size: 14px;
           box-sizing: border-box;
           transition: all 0.3s ease;
-        " onmouseover="this.style.borderColor='#00ff88'" onmouseout="this.style.borderColor='#222'">
+          backdrop-filter: blur(10px);
+          font-family: 'Segoe UI', system-ui, sans-serif;
+          letter-spacing: 0.5px;
+        " 
+        onmouseover="this.style.borderColor='rgba(255, 255, 255, 0.3)'; this.style.background='rgba(255, 255, 255, 0.08)'" 
+        onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.15)'; this.style.background='rgba(255, 255, 255, 0.05)'" 
+        onfocus="this.style.borderColor='rgba(255, 255, 255, 0.4)'; this.style.boxShadow='0 0 20px rgba(255, 255, 255, 0.1)'" 
+        onblur="this.style.borderColor='rgba(255, 255, 255, 0.15)'; this.style.boxShadow='none'">
       </div>
-
-      <div style="margin-bottom: 30px;">
-        <label style="color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">Key</label>
-        <input id="_01_key_input" type="password" placeholder="Enter key" style="
+      
+      <div style="margin-bottom: 28px;">
+        <label style="
+          color: #ccc; 
+          font-size: 10px; 
+          text-transform: uppercase; 
+          letter-spacing: 1.5px; 
+          display: block; 
+          margin-bottom: 10px; 
+          font-weight: 600;
+          font-family: 'Segoe UI', system-ui, sans-serif;
+        ">Access Key</label>
+        <input id="_01_key_input" type="password" placeholder="Enter your key" style="
           width: 100%;
-          padding: 12px;
-          background: #0a0a0a;
-          border: 1px solid #222;
-          border-radius: 8px;
-          color: #fff;
+          padding: 14px 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 10px;
+          color: #ffffff;
           font-size: 14px;
           box-sizing: border-box;
           transition: all 0.3s ease;
-        " onmouseover="this.style.borderColor='#00ff88'" onmouseout="this.style.borderColor='#222'">
+          backdrop-filter: blur(10px);
+          font-family: 'Segoe UI', system-ui, sans-serif;
+          letter-spacing: 0.5px;
+        " 
+        onmouseover="this.style.borderColor='rgba(255, 255, 255, 0.3)'; this.style.background='rgba(255, 255, 255, 0.08)'" 
+        onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.15)'; this.style.background='rgba(255, 255, 255, 0.05)'" 
+        onfocus="this.style.borderColor='rgba(255, 255, 255, 0.4)'; this.style.boxShadow='0 0 20px rgba(255, 255, 255, 0.1)'" 
+        onblur="this.style.borderColor='rgba(255, 255, 255, 0.15)'; this.style.boxShadow='none'">
       </div>
-
-      <button id="_01_verify_btn" style="
-        width: 100%;
-        padding: 12px;
-        background: linear-gradient(135deg, #00ff88, #00c97a);
-        border: none;
-        border-radius: 8px;
-        color: #0a0a0a;
-        font-weight: 800;
-        font-size: 12px;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        cursor: pointer;
-        transition: all 0.3s ease;
-      " onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-        Verify
-      </button>
-
-      <div style="margin-top: 20px; text-align: center;">
-        <button id="_01_register_btn" style="
-          background: none;
-          border: none;
-          color: #00ff88;
+      
+      <div id="_01_error_msg" style="
+        color: #ff6b6b; 
+        font-size: 11px; 
+        margin-bottom: 18px; 
+        text-align: center; 
+        min-height: 16px; 
+        font-weight: 500;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      "></div>
+      
+      <div style="
+        display: flex;
+        align-items: center;
+        margin-bottom: 18px;
+        gap: 8px;
+      ">
+        <input id="_01_remember_me" type="checkbox" style="
+          width: 16px;
+          height: 16px;
+          cursor: pointer;
+          accent-color: #ffffff;
+        ">
+        <label for="_01_remember_me" style="
+          color: #999;
           font-size: 11px;
           cursor: pointer;
-          text-decoration: underline;
-          transition: all 0.3s ease;
-        " onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-          Don't have a key? Register
-        </button>
+          font-family: 'Segoe UI', system-ui, sans-serif;
+          user-select: none;
+        ">Remember me</label>
+      </div>
+      
+      <button id="_01_verify_btn" style="
+        width: 100%;
+        padding: 14px;
+        background: #ffffff;
+        border: none;
+        border-radius: 10px;
+        color: #000000;
+        font-weight: 700;
+        font-size: 12px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        box-shadow: 0 8px 24px rgba(255, 255, 255, 0.15);
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      " 
+      onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 12px 32px rgba(255, 255, 255, 0.25)'" 
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 8px 24px rgba(255, 255, 255, 0.15)'" 
+      onmousedown="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(255, 255, 255, 0.15)'">
+        Verify Access
+      </button>
+      
+      <div style="
+        text-align: center; 
+        margin-top: 24px; 
+        font-size: 9px; 
+        color: #888; 
+        letter-spacing: 1px;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      ">
+        Secure verification • HWID locked
       </div>
     </div>
   `;
 
   document.getElementById('_01_verify_btn').addEventListener('click', handleVerify);
-  document.getElementById('_01_register_btn').addEventListener('click', showRegistrationForm);
+  document.getElementById('_01_key_input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleVerify();
+  });
+  
+  // Logo animation on hover
+  const logo = document.getElementById('_01_logo');
+  if (logo) {
+    logo.addEventListener('mouseenter', () => {
+      logo.style.animation = '_01_logo_rotate 1s linear';
+    });
+    logo.addEventListener('mouseleave', () => {
+      logo.style.animation = '_01_logo_glow 3s ease-in-out infinite';
+    });
+  }
+  
+  // Remember me logic
+  const rememberCheckbox = document.getElementById('_01_remember_me');
+  const usernameInput = document.getElementById('_01_username_input');
+  const keyInput = document.getElementById('_01_key_input');
+  
+  if (rememberCheckbox && usernameInput && keyInput) {
+    const saved = localStorage.getItem('_01_remember_me');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        usernameInput.value = data.username || '';
+        keyInput.value = data.key || '';
+        rememberCheckbox.checked = true;
+      } catch (e) {}
+    }
+    
+    rememberCheckbox.addEventListener('change', () => {
+      if (rememberCheckbox.checked) {
+        localStorage.setItem('_01_remember_me', JSON.stringify({
+          username: usernameInput.value,
+          key: keyInput.value
+        }));
+      } else {
+        localStorage.removeItem('_01_remember_me');
+      }
+    });
+    
+    usernameInput.addEventListener('input', () => {
+      if (rememberCheckbox.checked) {
+        localStorage.setItem('_01_remember_me', JSON.stringify({
+          username: usernameInput.value,
+          key: keyInput.value
+        }));
+      }
+    });
+    
+    keyInput.addEventListener('input', () => {
+      if (rememberCheckbox.checked) {
+        localStorage.setItem('_01_remember_me', JSON.stringify({
+          username: usernameInput.value,
+          key: keyInput.value
+        }));
+      }
+    });
+  }
 }
 
 function showRegistrationForm() {
+  return; // Registration disabled - login only
+}
+
+function _showRegistrationForm_DISABLED() {
   const content = document.getElementById('_01_loader_content');
 
   content.innerHTML = `
@@ -519,11 +723,10 @@ function showRegistrationForm() {
 }
 
 async function handleVerify() {
-  const username = document.getElementById('_01_username_input').value.trim();
   const key = document.getElementById('_01_key_input').value.trim();
 
-  if (!username || !key) {
-    alert('Please enter username and key');
+  if (!key) {
+    alert('Please enter your key');
     return;
   }
 
@@ -532,17 +735,17 @@ async function handleVerify() {
 
   if (result.valid) {
     _01_loaderState.isVerified = true;
-    _01_loaderState.username = username;
+    _01_loaderState.username = result.key?.username || 'User';
     _01_loaderState.key = key;
     _01_loaderState.hwid = hwid;
 
     localStorage.setItem('_01_verified', JSON.stringify({
-      username: username,
+      username: _01_loaderState.username,
       key: key,
       hwid: hwid
     }));
 
-    alert(result.message);
+    console.log('[01 Studios] Key verified, closing loader');
     closeLoader();
   } else if (result.error === 'HWID_MISMATCH') {
     alert('This key is locked to a different device. Make a ticket in Discord for HWID reset.');
@@ -588,11 +791,27 @@ async function handleRegister() {
 
 function closeLoader() {
   const panel = document.getElementById('_01_loader_panel');
+  const hideStyle = document.getElementById('_01_loader_hide_style');
+  
+  if (hideStyle && hideStyle.parentNode) {
+    hideStyle.parentNode.removeChild(hideStyle);
+  }
+  
   if (panel) {
+    panel.style.display = 'none';
     panel.style.opacity = '0';
     panel.style.transition = 'opacity 0.3s ease';
-    setTimeout(() => panel.remove(), 300);
+    panel.style.pointerEvents = 'none';
+    panel.style.zIndex = '-1';
+    setTimeout(() => {
+      if (panel && panel.parentNode) {
+        panel.parentNode.removeChild(panel);
+      }
+    }, 300);
   }
+  setTimeout(() => {
+    buildGUI();
+  }, 100);
 }
 
 // ============================================================================
@@ -886,6 +1105,21 @@ window._01_initLoader = () => {
  #_01studios_rig_notif { animation:_01studios_rig_slide_in 0.4s cubic-bezier(0.34,1.56,0.64,1),_01studios_rig_pulse 2s 0.4s infinite ease-in-out; }
  `;
  document.head.appendChild(style);
+  
+  // Mouse tracking effect - card follows mouse
+  const card = document.getElementById("_01_loader_card");
+  if (card) {
+    document.addEventListener("mousemove", (e) => {
+      const rect = card.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const distX = (e.clientX - centerX) * 0.05;
+      const distY = (e.clientY - centerY) * 0.05;
+      
+      card.style.transform = `translate(${distX}px, ${distY}px)`;
+    });
+  }
  }
 
  notif.innerHTML = `
@@ -1852,6 +2086,21 @@ window._01_initLoader = () => {
  style = document.createElement('style');
  style.id = '_01studios_overlay_styles';
  document.head.appendChild(style);
+  
+  // Mouse tracking effect - card follows mouse
+  const card = document.getElementById("_01_loader_card");
+  if (card) {
+    document.addEventListener("mousemove", (e) => {
+      const rect = card.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const distX = (e.clientX - centerX) * 0.05;
+      const distY = (e.clientY - centerY) * 0.05;
+      
+      card.style.transform = `translate(${distX}px, ${distY}px)`;
+    });
+  }
  }
  const pc = getPredColor();
  style.textContent = `
@@ -2116,6 +2365,21 @@ window._01_initLoader = () => {
  style = document.createElement('style');
  style.id = id;
  document.head.appendChild(style);
+  
+  // Mouse tracking effect - card follows mouse
+  const card = document.getElementById("_01_loader_card");
+  if (card) {
+    document.addEventListener("mousemove", (e) => {
+      const rect = card.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const distX = (e.clientX - centerX) * 0.05;
+      const distY = (e.clientY - centerY) * 0.05;
+      
+      card.style.transform = `translate(${distX}px, ${distY}px)`;
+    });
+  }
  }
  style.textContent = `
  #_01studios_radial_overlay {
@@ -2283,6 +2547,21 @@ window._01_initLoader = () => {
  style = document.createElement('style');
  style.id = id;
  document.head.appendChild(style);
+  
+  // Mouse tracking effect - card follows mouse
+  const card = document.getElementById("_01_loader_card");
+  if (card) {
+    document.addEventListener("mousemove", (e) => {
+      const rect = card.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const distX = (e.clientX - centerX) * 0.05;
+      const distY = (e.clientY - centerY) * 0.05;
+      
+      card.style.transform = `translate(${distX}px, ${distY}px)`;
+    });
+  }
  }
  style.textContent = `
  @keyframes _01studios_panel_glow {
@@ -6260,11 +6539,15 @@ function renderHomeTab() {
  // Initialize the loader system first
  window._01_initLoader().then(() => {
    // After loader completes, initialize the GUI
-   buildGUI();
-   tInjectFetchInterceptor();
+   setTimeout(() => {
+     buildGUI();
+     tInjectFetchInterceptor();
+   }, 100);
  }).catch(() => {
    // If loader fails, still initialize
-   buildGUI();
-   tInjectFetchInterceptor();
+   setTimeout(() => {
+     buildGUI();
+     tInjectFetchInterceptor();
+   }, 100);
  });
  })();
