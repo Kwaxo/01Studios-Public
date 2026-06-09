@@ -58,7 +58,8 @@ GM_addStyle(`
  var _01_autoClick = false;
  var _01_autoCash = false;
  var _01_autoStart = false;
- var _01_autoPredict = false;
+ var _01_autoPredict = false; // synced to settings.autoPredict at runtime
+var _autoPredictFired = false; // tracks if auto-predict already fired this round
 
 // ============================================================================
 // LOADER SYSTEM INJECTION
@@ -1083,9 +1084,8 @@ window._01_initLoader = () => {
     let _bloxflipUsername = '';
  let martingaleMultiplier = 2;
  let targetTiles = 3;
- let selectedAlgos = JSON.parse(localStorage.getItem('_01studios_algos') || 'null') || ['SemiRandom','Roundify','Random','HistoryEngine'];
-    if (selectedAlgos.includes('History Engine')) { selectedAlgos = selectedAlgos.map(a => a === 'History Engine' ? 'HistoryEngine' : a); localStorage.setItem('_01studios_algos', JSON.stringify(selectedAlgos)); }
-    if (selectedAlgos.includes('HistoryAI')) { selectedAlgos = selectedAlgos.map(a => a === 'HistoryAI' ? 'HistoryEngine' : a); localStorage.setItem('_01studios_algos', JSON.stringify(selectedAlgos)); }
+ let currentAlgo = localStorage.getItem('_01studios_algo') || 'Quantum';
+ let _lastActiveAlgo = 'Vector';
  let accentColor = localStorage.getItem('_01studios_accent') || GOLD;
  let _activeCore = 'union';
  let _securityIntegrityPassed = true;
@@ -1426,124 +1426,14 @@ window._01_initLoader = () => {
 
 
  const ALGO_DEFS = [
- {
- id: 'SemiRandom',
- label: 'SemiRandom',
- color: '#f5c518',
- desc: 'Spots appearing 2+ times in last 6 games (same mine count) -- recency-weighted'
- },
- {
- id: 'Roundify',
- label: 'Roundify',
- color: '#f5c518',
- desc: 'Recency-weighted frequency -- recent games count more'
- },
- {
- id: 'Random',
- label: 'Random',
- color: '#aaa',
- desc: 'Four clean random spots -- no history, no bias'
- },
- {
- id: 'Rev-Map',
- label: 'Rev-Map',
- color: '#aaa',
- desc: 'Mirrors last game positions, cleans against all history'
- },
- {
- id: 'HotZone',
- label: 'HotZone',
- color: '#e05555',
- desc: 'Most mined spots across full history -- bets on repetition'
- },
- {
- id: 'ColdZone',
- label: 'ColdZone',
- color: '#4fc3f7',
- desc: 'Spots with zero hits in history -- untouched territory'
- },
- {
- id: 'GapFill',
- label: 'GapFill',
- color: '#aaa',
- desc: 'Scores cells by clean-neighbour count last game, penalises history hits'
- },
- {
- id: 'DriftMap',
- label: 'DriftMap',
- color: '#aaa',
- desc: 'Extracts avg mine movement vector over 3 games, drifts last positions'
- },
- {
- id: 'StreakBreak',
- label: 'StreakBreak',
- color: '#aaa',
- desc: 'Finds 3-game streak cells, picks spots farthest from them by Manhattan distance. (OP)'
- },
- {
- id: 'Quadrant',
- label: 'Quadrant',
- color: '#aaa',
- desc: 'Splits board into 4 zones, picks the coldest cell from each for spread'
- },
- {
- id: 'Ripple',
- label: 'Ripple',
- color: '#aaa',
- desc: 'Finds the most-mined area, predicts the far-ring cells around it'
- },
- {
- id: 'Momentum',
- label: 'Momentum',
- color: '#aaa',
- desc: 'Compares last 3 vs prev-3 game frequency'
- },
- {
- id: 'HistoryEngine',
- label: 'History Engine',
- color: accentColor,
- desc: 'Learns from your session games to avoid recent mine positions and find safe zones.'
- },
-         { id: 'EdgeWalk', label: 'EdgeWalk', color: '#4fc3f7', desc: 'Prioritizes edge cells where mines rarely cluster' },
-        { id: 'CenterMass', label: 'CenterMass', color: '#4fc3f7', desc: 'Targets the board center, avoids risky edges' },
-        { id: 'DiagonalShift', label: 'DiagonalShift', color: '#aaa', desc: 'Shifts mine positions diagonally from last game' },
-        { id: 'CheckerBoard', label: 'CheckerBoard', color: '#aaa', desc: 'Alternating pattern -- picks the parity mines missed' },
-        { id: 'Fibonacci', label: 'Fibonacci', color: '#f5c518', desc: 'Fibonacci-spaced cell selection with history filter' },
-        { id: 'PrimeGrid', label: 'PrimeGrid', color: '#f5c518', desc: 'Targets prime-indexed cells as natural avoidance' },
-        { id: 'Vortex', label: 'Vortex', color: '#e05555', desc: 'Spiral pattern that rotates every 4 games' },
-        { id: 'MirrorX', label: 'MirrorX', color: '#aaa', desc: 'Horizontal mirror of last game mine positions' },
-        { id: 'MirrorY', label: 'MirrorY', color: '#aaa', desc: 'Vertical mirror of last game mine positions' },
-        { id: 'ClusterAvoid', label: 'ClusterAvoid', color: '#e05555', desc: 'Maps mine clusters from 10 games, avoids them' },
-        { id: 'PhaseShift', label: 'PhaseShift', color: '#aaa', desc: 'Shifts mine columns by game number offset' },
-        { id: 'WeightedRandom', label: 'WeightedRandom', color: '#aaa', desc: 'Random weighted by inverse mine frequency' },
-        { id: 'TemporalDecay', label: 'TemporalDecay', color: '#4fc3f7', desc: 'Exponential decay -- recent games matter more' },
-        { id: 'Entropy', label: 'Entropy', color: '#f5c518', desc: 'Least predictable cells based on info theory' },
-        { id: 'BayesianNet', label: 'BayesianNet', color: '#e05555', desc: 'Full Bayesian posterior probability per cell' },
-        { id: 'MarkovChain', label: 'MarkovChain', color: '#e05555', desc: 'Transition probability -- predicts repeat positions' },
-        { id: 'NeuralBlend', label: 'NeuralBlend', color: accentColor, desc: 'Blends top 5 algos by consensus -- the meta-algorithm' },
-        { id: 'MonteCarlo', label: 'MonteCarlo', color: '#ff9800', desc: '2000 simulations using weighted mine probabilities from past games' },
-    ];
+   { id:'Guardian',  label:'Guardian',   color:'#00c97a',  desc:'Low-risk. Targets tiles with the lowest historical mine frequency. Maximizes survival probability.' },
+   { id:'Vector',    label:'Vector',     color:accentColor, desc:'Balanced / EV-optimal. Blends real survival probability with history signal. Best for steady play.' },
+   { id:'Phantom',   label:'Phantom',    color:'#e05555',  desc:'Aggressive. Targets tiles that are historically cold AND recently cold — the "due" tile strategy.' },
+   { id:'Quantum',   label:'Quantum',    color:'#f5c518',  desc:'Runs 2000 Monte Carlo simulations using weighted probabilities from past games. Each sim places mines historically. Tiles avoiding mines most across all sims are returned as safe. Results vary each run.' }
+ ]
 
 
- function unionCoreSelectAlgos(mc, gh, ss) {
- var ids = ALGO_DEFS.map(function(a){return a.id;});
- var sc = {}; for(var i=0;i<ids.length;i++) sc[ids[i]]=50;
- var hl=(gh||[]).length, w=ss.winStreak||0, l=ss.lossStreak||0;
- if(hl>10){sc['HistoryEngine']+=35;sc['ClusterAvoid']=(sc['ClusterAvoid']||50)+25;sc['TemporalDecay']=(sc['TemporalDecay']||50)+22;sc['BayesianNet']=(sc['BayesianNet']||50)+22;sc['MarkovChain']=(sc['MarkovChain']||50)+20;sc['MonteCarlo']=(sc['MonteCarlo']||50)+28;}
- if(hl>30){sc['Entropy']=(sc['Entropy']||50)+18;sc['WeightedRandom']=(sc['WeightedRandom']||50)+12;sc['MonteCarlo']=(sc['MonteCarlo']||50)+15;}
- if(hl>50){sc['MonteCarlo']=(sc['MonteCarlo']||50)+20;sc['NeuralBlend']=(sc['NeuralBlend']||50)+15;}
- if(l>=2){sc['ClusterAvoid']=(sc['ClusterAvoid']||50)+l*10;sc['BayesianNet']=(sc['BayesianNet']||50)+l*8;sc['ColdZone']=(sc['ColdZone']||50)+l*6;sc['EdgeWalk']=(sc['EdgeWalk']||50)+l*5;sc['MonteCarlo']=(sc['MonteCarlo']||50)+l*7;}
- if(w>=2){sc['Vortex']=(sc['Vortex']||50)+w*6;sc['PhaseShift']=(sc['PhaseShift']||50)+w*5;sc['DiagonalShift']=(sc['DiagonalShift']||50)+w*4;sc['Random']=(sc['Random']||50)+w*4;}
- if(mc>=10){sc['NeuralBlend']=(sc['NeuralBlend']||50)+22;sc['BayesianNet']=(sc['BayesianNet']||50)+18;sc['HistoryEngine']+=18;sc['StreakBreak']=(sc['StreakBreak']||50)+12;sc['MonteCarlo']=(sc['MonteCarlo']||50)+20;}
- if(mc<=3){sc['CenterMass']=(sc['CenterMass']||50)+10;sc['CheckerBoard']=(sc['CheckerBoard']||50)+8;sc['Random']=(sc['Random']||50)+10;}
- sc['NeuralBlend']=(sc['NeuralBlend']||50)+12;
- sc['MonteCarlo']=(sc['MonteCarlo']||50)+8;
- var jitterSeed = hashFNV1a('uc:' + mc + ':' + hl + ':' + w + ':' + l + ':' + Date.now().toString(36));
- var jitterRng = mulberry32(jitterSeed);
- for(var j=0;j<ids.length;j++) sc[ids[j]]+=jitterRng()*6;
- var sorted=ids.slice().sort(function(a,b){return(sc[b]||0)-(sc[a]||0);});
- return sorted.slice(0,5);
- }
+
 
 
  let _bombScores = null;
@@ -1581,6 +1471,243 @@ window._01_initLoader = () => {
  let _bridgeInjected = false;
  let _latestGameState = null;
 
+
+ // ── PREDICTION ENGINE: History helpers ──────────────────────────
+ function _getHistoryForMines(mines) {
+   try { return analyticsLog.filter(e => e.mines === mines && Array.isArray(e.minePosArr)); }
+   catch(e) { return []; }
+ }
+
+ function _buildFreqMap(history, total) {
+   const freq = new Float64Array(total);
+   for (const g of history) {
+     for (const pos of (g.minePosArr || [])) {
+       if (pos >= 0 && pos < total) freq[pos]++;
+     }
+   }
+   return freq;
+ }
+
+ // Small noise so tied scores break consistently within a game.
+ // Seed comes from the game's stable state (UUID + revealed count),
+ // so the same board always produces the same picks (no jitter mid-game).
+ function _stableGameSeed() {
+   let s = 0x811c9dc5;
+   const uuid = (currentGameData && currentGameData.uuid) ? String(currentGameData.uuid) : 'noseed';
+   const revealed = (currentGameData && currentGameData.uncoveredLocations)
+     ? currentGameData.uncoveredLocations.length : 0;
+   const tag = uuid + ':' + revealed + ':' + mineCount + ':' + targetTiles + ':' + currentAlgo;
+   for (let i = 0; i < tag.length; i++) {
+     s ^= tag.charCodeAt(i);
+     s = Math.imul(s, 0x01000193);
+   }
+   return s >>> 0;
+ }
+
+ function _addJitter(scores, seed) {
+   const rng = _seededRand(seed);
+   const out = new Float64Array(scores.length);
+   for (let i = 0; i < scores.length; i++) out[i] = scores[i] + rng() * 0.05;
+   return out;
+ }
+
+ function _seededRand(seed) {
+   let s = (seed >>> 0) + 0x6D2B79F5;
+   return function() {
+     s = (s + 0x6D2B79F5) >>> 0;
+     let z = s;
+     z = Math.imul(z ^ (z >>> 15), z | 1);
+     z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
+     return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
+   };
+ }
+
+ // ── GUARDIAN: lowest mine-frequency tiles ──────────────────────
+
+ function algoScore_Guardian(mines, total) {
+   const seed = (_stableGameSeed() ^ 0x1A2B3C4D) >>> 0;
+   const history = _getHistoryForMines(mines);
+   const scores = new Float64Array(total);
+
+   if (history.length < 3) {
+     // Random with edge preference — never the same tiles twice
+     const rng = _seededRand(seed);
+     for (let i = 0; i < total; i++) {
+       const row = Math.floor(i / gridSize), col = i % gridSize;
+       const e = Math.min(row, col, gridSize-1-row, gridSize-1-col);
+       scores[i] = 0.3 + (e === 0 ? 0.25 : e === 1 ? 0.1 : 0) + rng() * 0.45;
+     }
+   } else {
+     const freq = _buildFreqMap(history, total);
+     const maxFreq = Math.max(...freq) || 1;
+     for (let i = 0; i < total; i++) {
+       scores[i] = 1.0 - Math.pow(freq[i] / maxFreq, 0.8);
+       if (freq[i] === 0) scores[i] = Math.min(1.0, scores[i] + 0.18);
+     }
+   }
+
+   if (currentGameData && currentGameData.uncoveredLocations) {
+     for (const p of currentGameData.uncoveredLocations) if (p>=0&&p<total) scores[p] = 0;
+   }
+   return _addJitter(scores, seed);
+ }
+
+
+ function algoScore_Vector(mines, total) {
+   const seed = (_stableGameSeed() ^ 0x4D5E6F70) >>> 0;
+   const history = _getHistoryForMines(mines);
+   const scores = new Float64Array(total);
+   const revealed = currentGameData && currentGameData.uncoveredLocations
+     ? currentGameData.uncoveredLocations.length : 0;
+   const remaining = total - revealed;
+   const baseSafeProb = remaining > 0 ? (total - mines - revealed) / remaining : 0.5;
+
+   if (history.length < 3) {
+     const rng = _seededRand(seed);
+     for (let i = 0; i < total; i++) scores[i] = baseSafeProb * 0.55 + rng() * 0.45;
+   } else {
+     const freq = _buildFreqMap(history, total);
+     const maxFreq = Math.max(...freq) || 1;
+     const hw = Math.min(0.65, history.length / 40);
+     for (let i = 0; i < total; i++) {
+       const histSafe = 1.0 - (freq[i] / maxFreq);
+       scores[i] = baseSafeProb * (1 - hw) + histSafe * hw;
+     }
+   }
+
+   if (currentGameData && currentGameData.uncoveredLocations) {
+     for (const p of currentGameData.uncoveredLocations) if (p>=0&&p<total) scores[p] = 0;
+   }
+   return _addJitter(scores, seed);
+ }
+
+
+ function algoScore_Phantom(mines, total) {
+   const seed = (_stableGameSeed() ^ 0x7A8B9CAD) >>> 0;
+   const history = _getHistoryForMines(mines);
+   const scores = new Float64Array(total);
+
+   if (history.length < 5) {
+     const rng = _seededRand(seed);
+     const cx = (gridSize - 1) / 2, cy = (gridSize - 1) / 2;
+     for (let i = 0; i < total; i++) {
+       const row = Math.floor(i / gridSize), col = i % gridSize;
+       const d = Math.abs(row - cx) + Math.abs(col - cy);
+       scores[i] = Math.max(0.1, 0.75 - d * 0.04) + rng() * 0.4;
+     }
+   } else {
+     const ff = _buildFreqMap(history, total);
+     const rf = _buildFreqMap(history.slice(-8), total);
+     const mf = Math.max(...ff) || 1, mr = Math.max(...rf) || 1;
+     for (let i = 0; i < total; i++) {
+       scores[i] = (1.0 - ff[i]/mf) * 0.45 + (1.0 - rf[i]/mr) * 0.55;
+     }
+   }
+
+   if (currentGameData && currentGameData.uncoveredLocations) {
+     for (const p of currentGameData.uncoveredLocations) if (p>=0&&p<total) scores[p] = 0;
+   }
+   return _addJitter(scores, seed);
+ }
+
+ function _weightedSampleNoReplace(items, weights, k, rng) {
+   if (k >= items.length) return new Set(items);
+   const result = new Set();
+   const w = [...weights];
+   for (let pick = 0; pick < k; pick++) {
+     let tw = 0;
+     for (let i = 0; i < w.length; i++) tw += w[i];
+     if (tw <= 0) break;
+     let r = rng() * tw, chosen = w.length - 1;
+     for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { chosen = i; break; } }
+     result.add(items[chosen]);
+     w[chosen] = 0;
+   }
+   return result;
+ }
+
+ function algoScore_Quantum(mines, total) {
+   const SIMS = 2000;
+   const history = _getHistoryForMines(mines);
+   const safeCount = new Float64Array(total);
+   const weights = new Float64Array(total).fill(1.0);
+
+   if (history.length >= 3) {
+     const freq = _buildFreqMap(history, total);
+     const maxFreq = Math.max(...freq) || 1;
+     for (let i = 0; i < total; i++) {
+       const normalized = freq[i] / maxFreq;
+       weights[i] = 0.15 + Math.pow(normalized, 0.65) * 0.85;
+     }
+   } else {
+     const rng0 = _seededRand((_stableGameSeed() ^ 0xAB12CD34) >>> 0);
+     for (let i = 0; i < total; i++) weights[i] = 0.65 + rng0() * 0.35;
+   }
+
+   const revealedSet = new Set();
+   if (currentGameData && currentGameData.uncoveredLocations) {
+     for (const pos of currentGameData.uncoveredLocations) {
+       revealedSet.add(pos); weights[pos] = 0;
+     }
+   }
+
+   const seed = (_stableGameSeed() ^ (mines * 0xF3A71B9C)) >>> 0;
+   const rng = _seededRand(seed);
+
+   const available = [], availWeights = [];
+   for (let i = 0; i < total; i++) {
+     if (!revealedSet.has(i) && weights[i] > 0) {
+       available.push(i); availWeights.push(weights[i]);
+     }
+   }
+
+   for (let sim = 0; sim < SIMS; sim++) {
+     const simMined = _weightedSampleNoReplace(available, availWeights, mines, rng);
+     for (let i = 0; i < total; i++) {
+       if (!simMined.has(i) && !revealedSet.has(i)) safeCount[i]++;
+     }
+   }
+
+   const maxSafe = Math.max(...safeCount) || 1;
+   const scores = new Float64Array(total);
+   for (let i = 0; i < total; i++) scores[i] = safeCount[i] / maxSafe;
+   return scores;
+ }
+
+ // ── BLEND: dispatch to correct algo ───────────────────────────
+ function blendAlgoScores(mines, total) {
+   const algoId = currentAlgo;
+   _lastActiveAlgo = algoId;
+   switch (algoId) {
+     case 'Guardian': return algoScore_Guardian(mines, total);
+     case 'Phantom':  return algoScore_Phantom(mines, total);
+     case 'Quantum':  return algoScore_Quantum(mines, total);
+     default:         return algoScore_Vector(mines, total);
+   }
+ }
+
+ // ── GENERATE PREDICTION ────────────────────────────────────────
+ function generatePrediction() {
+   const total  = gridSize * gridSize;
+   const scores = blendAlgoScores(mineCount, total);
+   const revealedSet = new Set(currentGameData?.uncoveredLocations  || []);
+   const minePosSet  = new Set(currentGameData?.mineLocations        || []);
+   const tiles = [];
+   for (let i = 0; i < total; i++) {
+     const isRevealed = revealedSet.has(i);
+     const isMine     = minePosSet.has(i);
+     tiles.push({ index:i, score:scores[i], isRevealed, isMine,
+                  isSafe:isRevealed&&!isMine, isSuggestedSafe:false, pickOrder:0 });
+   }
+   const unrevealed = tiles.filter(t => !t.isRevealed && !t.isMine);
+   unrevealed.sort((a, b) => b.score - a.score);
+   const picks = Math.min(targetTiles, unrevealed.length);
+   for (let i = 0; i < picks; i++) {
+     unrevealed[i].isSuggestedSafe = true;
+     unrevealed[i].pickOrder       = i + 1;
+   }
+   return tiles;
+ }
  function injectFiberBridge() {
  if (_bridgeInjected) return;
  _bridgeInjected = true;
@@ -2025,7 +2152,7 @@ window._01_initLoader = () => {
  let _minesSequenceComplete = false;
 
  function updateAutoPressBtn() {
- const btn = document.getElementById('_01studios_autopress');
+ const btn = document.getElementById('_01studios_menu_autopress');
  if (!btn) return;
  const ac = accentColor;
  if (autoPressEnabled) {
@@ -2035,6 +2162,23 @@ window._01_initLoader = () => {
  btn.style.background = `linear-gradient(135deg,${ac}22,${ac}44)`;
  } else {
  btn.textContent = 'AUTO CLICK';
+ btn.style.borderColor = '#333';
+ btn.style.color = TEXT_DIM;
+ btn.style.background = '#1a1a1a';
+ }
+ }
+
+ function updateAutoPredictBtn() {
+ const btn = document.getElementById('_01studios_menu_autopredict');
+ if (!btn) return;
+ const on = settings.autoPredict !== false;
+ if (on) {
+ btn.textContent = '[ON] AUTO PREDICT';
+ btn.style.borderColor = accentColor;
+ btn.style.color = accentColor;
+ btn.style.background = `linear-gradient(135deg,${accentColor}22,${accentColor}44)`;
+ } else {
+ btn.textContent = 'AUTO PREDICT';
  btn.style.borderColor = '#333';
  btn.style.color = TEXT_DIM;
  btn.style.background = '#1a1a1a';
@@ -2104,15 +2248,16 @@ window._01_initLoader = () => {
  }
 
  function autoPressTiles() {
- _01_autoClick = !_01_autoClick;
- if (!_01_autoClick) {
- autoPressActive = false;
- updateStatus('Auto click off.', TEXT_DIM);
+ autoPressEnabled = !autoPressEnabled;
+ _01_autoClick = autoPressEnabled;
+ if (!autoPressEnabled) {
+   autoPressActive = false;
+   updateStatus('Auto click off.', TEXT_DIM);
  } else {
- updateStatus(' Auto click ON -- will fire on next prediction.', accentColor);
- if (gameRunning && prediction.some(p => p && p.isSuggestedSafe && !p.isRevealed)) {
- runAutoPress();
- }
+   updateStatus(' Auto click ON -- will fire on next prediction.', accentColor);
+   if (gameRunning && prediction.some(p => p && p.isSuggestedSafe && !p.isRevealed)) {
+     runAutoPress();
+   }
  }
  updateAutoPressBtn();
  }
@@ -2120,7 +2265,7 @@ window._01_initLoader = () => {
  let autoCashoutEnabled = false;
 
  function updateAutoCashoutBtn() {
- const btn = document.getElementById('_01studios_autocashout');
+ const btn = document.getElementById('_01studios_menu_autocash');
  if (!btn) return;
  if (autoCashoutEnabled) {
  btn.textContent = '[STOP] CASHOUT ON';
@@ -2140,11 +2285,12 @@ window._01_initLoader = () => {
  }
 
  function toggleAutoCashout() {
- _01_autoCash = !_01_autoCash;
- if (_01_autoCash) {
- updateStatus(' Auto cashout ON -- will cashout after target tiles.', '#00c97a');
+ autoCashoutEnabled = !autoCashoutEnabled;
+ _01_autoCash = autoCashoutEnabled;
+ if (autoCashoutEnabled) {
+   updateStatus(' Auto cashout ON -- will cashout after target tiles.', '#00c97a');
  } else {
- updateStatus('Auto cashout off.', TEXT_DIM);
+   updateStatus('Auto cashout off.', TEXT_DIM);
  }
  updateAutoCashoutBtn();
  }
@@ -2152,7 +2298,7 @@ window._01_initLoader = () => {
  let autoStartEnabled = false;
 
  function updateAutoStartBtn() {
- const btn = document.getElementById('_01studios_autostart');
+ const btn = document.getElementById('_01studios_menu_autostart');
  if (!btn) return;
  if (autoStartEnabled) {
  btn.textContent = '[STOP] START ON';
@@ -2172,11 +2318,12 @@ window._01_initLoader = () => {
  }
 
  function toggleAutoStart() {
- _01_autoStart = !_01_autoStart;
- if (_01_autoStart) {
- updateStatus(' Auto start ON -- will start new game after each round.', '#00c97a');
+ autoStartEnabled = !autoStartEnabled;
+ _01_autoStart = autoStartEnabled;
+ if (autoStartEnabled) {
+   updateStatus(' Auto start ON -- will start new game after each round.', '#00c97a');
  } else {
- updateStatus('Auto start off.', TEXT_DIM);
+   updateStatus('Auto start off.', TEXT_DIM);
  }
  updateAutoStartBtn();
  }
@@ -2533,22 +2680,22 @@ window._01_initLoader = () => {
  if (_activeCore === 'security') {
   return `${renderHeader()}${coreSelector}<div id="_01studios_body" style="padding:0 12px 10px;">${renderSecurityCore()}</div>`;
  }
- return `${renderHeader()}${coreSelector}<div id="_01studios_body" style="padding:0 12px 10px;">${renderStatusBar()}<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;position:relative;"><div style="display:flex;flex-direction:column;gap:8px;position:relative;">${renderGridSection()}${renderSafeTilesSection()}</div> <div style="display:flex;flex-direction:column;gap:6px;"><div style="background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(0,0,0,0));border:1px solid #252525;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;flex:1;"><div style="color:#333;font-size:7px;letter-spacing:1px;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Session</div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:8px;color:#3a3a3a;">Wins</span><span id="_01_rc_wins" style="font-size:11px;font-weight:800;color:#00c97a;">${sessionWins}</span></div><div style="height:1px;background:#1e1e1e;"></div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:8px;color:#3a3a3a;">Losses</span><span id="_01_rc_losses" style="font-size:11px;font-weight:800;color:#e05555;">${sessionLosses}</span></div><div style="height:1px;background:#1e1e1e;"></div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:8px;color:#3a3a3a;">Streak</span><span id="_01_rc_streak" style="font-size:11px;font-weight:800;color:#f5a623;">${winStreak > 0 ? "🔥"+winStreak : lossStreak > 0 ? "❄"+lossStreak : "--"}</span></div><div style="height:1px;background:#1e1e1e;"></div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:8px;color:#3a3a3a;">Mines</span><span id="_01_rc_mines" style="font-size:11px;font-weight:800;color:#888;">${mineCount}</span></div></div><button id="_01studios_predict_btn" style="padding:10px 12px;background:linear-gradient(135deg,rgba(0,201,122,0.15),rgba(0,201,122,0.06));border:1px solid rgba(0,201,122,0.3);color:#00c97a;border-radius:10px;cursor:pointer;font-size:9px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;transition:all 0.25s ease;" title="Predict">PREDICT</button><div id="_01studios_quick_menu" style="display:none;background:#0a0a0a;border:1px solid #222;border-radius:10px;padding:8px;grid-template-columns:repeat(2,1fr);gap:6px;"><button id="_01studios_menu_autopress" style="padding:8px 4px;background:#111;border:1px solid #222;color:#555;border-radius:8px;cursor:pointer;font-size:7px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s ease;" title="Auto Click">AUTO CLICK</button><button id="_01studios_menu_autocash" style="padding:8px 4px;background:#111;border:1px solid #222;color:#555;border-radius:8px;cursor:pointer;font-size:7px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s ease;" title="Auto Cashout">AUTO CASH</button><button id="_01studios_menu_autostart" style="padding:8px 4px;background:#111;border:1px solid #222;color:#555;border-radius:8px;cursor:pointer;font-size:7px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s ease;" title="Auto Start">AUTO START</button><button id="_01studios_menu_autopredict" style="padding:8px 4px;background:#111;border:1px solid #222;color:#555;border-radius:8px;cursor:pointer;font-size:7px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s ease;" title="Auto Predict">AUTO PREDICT</button></div></div></div>${renderFooterBar()}</div>`;
+ return `${renderHeader()}${coreSelector}<div id="_01studios_body" style="padding:0 12px 10px;">${renderStatusBar()}<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;position:relative;"><div style="display:flex;flex-direction:column;gap:8px;position:relative;">${renderGridSection()}${renderSafeTilesSection()}</div> <div style="display:flex;flex-direction:column;gap:6px;"><div style="background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(0,0,0,0));border:1px solid #252525;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;flex:1;"><div style="color:#333;font-size:7px;letter-spacing:1px;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Session</div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:8px;color:#3a3a3a;">Wins</span><span id="_01_rc_wins" style="font-size:11px;font-weight:800;color:#00c97a;">${sessionWins}</span></div><div style="height:1px;background:#1e1e1e;"></div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:8px;color:#3a3a3a;">Losses</span><span id="_01_rc_losses" style="font-size:11px;font-weight:800;color:#e05555;">${sessionLosses}</span></div><div style="height:1px;background:#1e1e1e;"></div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:8px;color:#3a3a3a;">Streak</span><span id="_01_rc_streak" style="font-size:11px;font-weight:800;color:#f5a623;">${winStreak > 0 ? "🔥"+winStreak : lossStreak > 0 ? "❄"+lossStreak : "--"}</span></div><div style="height:1px;background:#1e1e1e;"></div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:8px;color:#3a3a3a;">Mines</span><span id="_01_rc_mines" style="font-size:11px;font-weight:800;color:#888;">${mineCount}</span></div></div>${renderAlgoSelector()}<button id="_01studios_predict_btn" style="padding:10px 12px;background:linear-gradient(135deg,rgba(0,201,122,0.15),rgba(0,201,122,0.06));border:1px solid rgba(0,201,122,0.3);color:#00c97a;border-radius:10px;cursor:pointer;font-size:9px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;transition:all 0.25s ease;" title="Predict">PREDICT</button><div id="_01studios_quick_menu" style="display:none;background:#0a0a0a;border:1px solid #222;border-radius:10px;padding:8px;grid-template-columns:repeat(2,1fr);gap:6px;"><button id="_01studios_menu_autopress" style="padding:8px 4px;background:#111;border:1px solid #222;color:#555;border-radius:8px;cursor:pointer;font-size:7px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s ease;" title="Auto Click">AUTO CLICK</button><button id="_01studios_menu_autocash" style="padding:8px 4px;background:#111;border:1px solid #222;color:#555;border-radius:8px;cursor:pointer;font-size:7px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s ease;" title="Auto Cashout">AUTO CASH</button><button id="_01studios_menu_autostart" style="padding:8px 4px;background:#111;border:1px solid #222;color:#555;border-radius:8px;cursor:pointer;font-size:7px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s ease;" title="Auto Start">AUTO START</button><button id="_01studios_menu_autopredict" style="padding:8px 4px;background:#111;border:1px solid #222;color:#555;border-radius:8px;cursor:pointer;font-size:7px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s ease;" title="Auto Predict">AUTO PREDICT</button></div></div></div>${renderFooterBar()}</div>`;
  }
 
  function renderCoreSelector() {
  const uc = _getUnionCoreStatus();
- const ucStatus = uc.active ? 'ACTIVE' : 'MANUAL';
- const ucStatusColor = uc.active ? '#00c97a' : '#888';
+ const ucStatus = 'ACTIVE';
+  const ucStatusColor = '#00c97a';
  const histLabel = uc.histCount > 0 ? uc.histCount + ' games' : 'No data';
  return `<div style="padding:6px 12px;background:#080808;border-bottom:1px solid #1a1a1a;">
- <div id="_01studios_core_btn" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#161616;border:1px solid #222;border-radius:10px;cursor:pointer;transition:all 0.2s;">
+ <div id="_01studios_core_btn" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#161616;border:1px solid #222;border-radius:10px;transition:all 0.2s;">
   <div style="display:flex;align-items:center;gap:8px;">
    <div style="width:6px;height:6px;border-radius:50%;background:${ucStatusColor};box-shadow:0 0 6px ${ucStatusColor}66;"></div>
    <span style="font-size:10px;font-weight:700;letter-spacing:1px;color:#fff;">CORE</span>
    <span style="font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;background:${ucStatusColor}18;color:${ucStatusColor};border:1px solid ${ucStatusColor}44;">${ucStatus}</span>
   </div>
-  <span id="_01studios_core_arrow" style="color:#333;font-size:10px;transition:transform 0.2s;">▼</span>
+
  </div>
  <div id="_01studios_core_popup" style="display:none;margin-top:6px;background:#111;border:1px solid #222;border-radius:10px;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);">
   <div id="_01studios_union_core_btn" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;cursor:pointer;border:1px solid ${ucStatusColor}33;background:${ucStatusColor}08;margin-bottom:4px;transition:all 0.15s;">
@@ -2636,11 +2783,12 @@ window._01_initLoader = () => {
  }
 
     const _UNION_CORE_SVG = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#666"/><stop offset="50%" stop-color="#ddd"/><stop offset="100%" stop-color="#888"/></linearGradient><linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#555"/><stop offset="100%" stop-color="#222"/></linearGradient></defs><circle cx="40" cy="40" r="38" fill="none" stroke="url(#g1)" stroke-width="2.5" opacity="0.4"/><circle cx="40" cy="40" r="28" fill="url(#g2)" stroke="url(#g1)" stroke-width="2"/><circle cx="40" cy="40" r="12" fill="url(#g1)" opacity="0.9"/><circle cx="40" cy="40" r="5" fill="#111"/><circle cx="40" cy="40" r="2" fill="#eee"/><g stroke="url(#g1)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"><line x1="40" y1="4" x2="40" y2="14"/><line x1="40" y1="66" x2="40" y2="76"/><line x1="4" y1="40" x2="14" y2="40"/><line x1="66" y1="40" x2="76" y2="40"/><line x1="14.5" y1="14.5" x2="21" y2="21"/><line x1="59" y1="59" x2="65.5" y2="65.5"/><line x1="65.5" y1="14.5" x2="59" y2="21"/><line x1="21" y1="59" x2="14.5" y2="65.5"/></g></svg>')}`;
-    function _getUnionCoreStatus() {
-        const histCount = getMineHistoryCount(mineCount);
-        const algoCount = _unionCoreEnabled ? 31 : selectedAlgos.length;
-        return { histCount, algoCount, active: _unionCoreEnabled };
-    }
+ function _getUnionCoreStatus() {
+   const histCount  = _getHistoryForMines(mineCount).length;
+   const isUnion    = currentAlgo === 'UnionCore';
+   const activeAlgo = currentAlgo;
+   return { histCount, algoCount: 5, active: isUnion, activeAlgo };
+ }
 
  function renderSafeTilesSection() {
   const optimal = findOptimalCashout(mineCount, gridSize * gridSize);
@@ -2879,6 +3027,48 @@ window._01_initLoader = () => {
  <div id="_01studios_status_text" style="font-size:9px;color:transparent;flex:1;user-select:none;pointer-events:none;"></div>
  </div>
  <div id="_01studios_nonce_lookahead" style="display:none;gap:4px;margin-top:4px;"></div>`;
+ }
+
+
+ // ── ALGO SELECTOR UI ──────────────────────────────────────────
+ const ALGO_MODES = [
+   { id:'Guardian',  label:'Guardian',   sub:'Low risk · cold zone',            color:'#00c97a' },
+   { id:'Vector',    label:'Vector',     sub:'Balanced · EV optimal',            color:accentColor },
+   { id:'Phantom',   label:'Phantom',    sub:'High risk · max reward',           color:'#e05555' },
+   { id:'Quantum',   label:'Quantum',    sub:'2000 MC sims · history-weighted',  color:'#f5c518' },
+ ];
+
+ function renderAlgoSelector() {
+   const uc = _getUnionCoreStatus();
+   let rows = '';
+   for (let i = 0; i < ALGO_MODES.length; i++) {
+     const m = ALGO_MODES[i];
+     const active = currentAlgo === m.id;
+     const sub = '';
+     const dot = active ? '<div style="width:6px;height:6px;border-radius:50%;background:' + m.color + ';box-shadow:0 0 6px ' + m.color + ';flex-shrink:0;"></div>' : '';
+     rows += '<div class="_01studios_algo_btn" data-algo="' + m.id + '" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;cursor:pointer;border:1.5px solid ' + (active ? m.color : '#222') + ';background:' + (active ? m.color + '18' : '#161616') + ';transition:all 0.2s;">'
+           + '<div>'
+           + '<span style="font-size:10px;font-weight:700;letter-spacing:0.8px;color:' + (active ? m.color : '#888') + ';">' + m.label + sub + '</span>'
+           + '<div style="font-size:7px;color:#444;margin-top:1px;">' + m.sub + '</div>'
+           + '</div>' + dot + '</div>';
+   }
+   return '<div style="margin:6px 0;">'
+        + '<div style="color:#444;font-size:7px;letter-spacing:1.5px;font-weight:700;margin-bottom:5px;">ALGORITHM</div>'
+        + '<div style="display:flex;flex-direction:column;gap:3px;">' + rows + '</div>'
+        + '</div>';
+ }
+
+ function updateAlgoButtons() {
+   document.querySelectorAll('._01studios_algo_btn').forEach(btn => {
+     const id  = btn.dataset.algo;
+     const def = ALGO_MODES.find(m => m.id === id);
+     if (!def) return;
+     const active = currentAlgo === id;
+     btn.style.borderColor = active ? def.color : '#222';
+     btn.style.background  = active ? def.color + '18' : '#161616';
+     const label = btn.querySelector('span');
+     if (label) label.style.color = active ? def.color : '#888';
+   });
  }
 
  function openModal(type) {
@@ -3543,7 +3733,7 @@ if (type === 'settings') {
  game: { uuid: game.uuid, clientSeed: game.clientSeed, nonce: game.nonce, serverHash: game.serverHash },
  mines: mineCount, gridSize: gridSize, targetTiles: targetTiles,
  uncoveredSafe: uncoveredSafe || [], uncoveredMines: uncoveredMines || [],
- selectedAlgos: _unionCoreEnabled ? unionCoreSelectAlgos(mineCount, analyticsLog, { winStreak: _01_sessionWins || 0, lossStreak: _01_sessionLosses || 0 }) : selectedAlgos,
+ selectedAlgos: [currentAlgo],
  analyticsLog: analyticsLog.slice(-50),
  mineHistory: [],
  sessionStats: { winStreak: winStreak, lossStreak: lossStreak, betAmount: game.betAmount || 0, lastBetAmount: _lastBetAmount || 0 }
@@ -3606,6 +3796,12 @@ if (type === 'settings') {
                     updateStatus(statusMsg, ucColor);
 
                 }
+ } else {
+   // API unavailable — run local prediction engine
+   mineCount = readMineCount();
+   prediction = generatePrediction();
+   const algoLabel = currentAlgo;
+   updateStatus(algoLabel + ' · ' + prediction.filter(p=>p.isSuggestedSafe).length + ' tiles marked', accentColor);
  }
 
  updateGrid();
@@ -3678,19 +3874,7 @@ if (type === 'settings') {
  document.addEventListener('mouseup',e=>{if(!e.isTrusted)return;if(isDragging){isDragging=false;panel.style.transition='';savePos(parseInt(panel.style.left),parseInt(panel.style.top));}});
  const homeBtn = panel.querySelector('#_01studios_home_btn'); if (homeBtn) { homeBtn.addEventListener('click', () => { window._01_activeTab = window._01_activeTab === 'home' ? 'main' : 'home'; panel.innerHTML = renderPanel(); attachEvents(panel); homeBtn.style.background = window._01_activeTab === 'home' ? accentColor + '33' : '#1a1a1a'; homeBtn.style.borderColor = window._01_activeTab === 'home' ? accentColor + '88' : '#2a2a2a'; }); } panel.querySelector('#_01studios_minimize').addEventListener('click',()=>{panelMinimized=!panelMinimized;const body=panel.querySelector('#_01studios_body');const cores=panel.querySelector('#_01studios_core_popup')?.parentElement;if(body)body.style.display=panelMinimized?'none':'';if(cores)cores.style.display=panelMinimized?'none':'';panel.querySelector('#_01studios_minimize').textContent=panelMinimized?'+':'-';});
 
- const coreBtn = panel.querySelector('#_01studios_core_btn');
- if (coreBtn) {
- coreBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const popup = panel.querySelector('#_01studios_core_popup');
-  const arrow = panel.querySelector('#_01studios_core_arrow');
-  if (popup) {
-   const isOpen = popup.style.display !== 'none';
-   popup.style.display = isOpen ? 'none' : 'block';
-   if (arrow) arrow.style.transform = isOpen ? 'none' : 'rotate(180deg)';
-  }
- });
- }
+ // CORE btn is purely visual - always shows ACTIVE, not clickable
  const secCoreItem = panel.querySelector('#_01studios_core_security');
  if (secCoreItem) secCoreItem.addEventListener('click', (e) => {
   e.stopPropagation();
@@ -3711,6 +3895,16 @@ if (type === 'settings') {
  }
 
  panel.querySelectorAll('._01studios_mode_btn').forEach(btn=>btn.addEventListener('click',()=>{currentMode=btn.dataset.mode;updateModeButtons();}));
+ panel.querySelectorAll('._01studios_algo_btn').forEach(btn => {
+   btn.addEventListener('click', () => {
+     currentAlgo = btn.dataset.algo;
+     localStorage.setItem('_01studios_algo', currentAlgo);
+     updateAlgoButtons();
+     if (gameRunning) triggerPrediction(lastUncovered, []);
+   });
+ });
+ // Restore auto button visual states after every re-render
+ setTimeout(() => { updateAutoPressBtn(); updateAutoCashoutBtn(); updateAutoStartBtn(); updateAutoPredictBtn(); }, 0);
  panel.querySelector('#_01studios_tile_dec')?.addEventListener('click',()=>{
  const maxSafe=Math.max(1,gridSize*gridSize-mineCount);
  if(targetTiles>1){targetTiles--;updateTileDisplay();}
@@ -3765,27 +3959,23 @@ if (type === 'settings') {
  }
   if(!menuOpened) {
    if(_01_predictLoading) return;
-   const gridEl = panel.querySelector('#_01studios_grid');
-   if(gridEl) {
-    const blurOverlay = panel.querySelector('#_01studios_blur_overlay');
-    if(blurOverlay) {
-     _01_predictLoading = true;
-     if(_01_predictSpinnerTimer) clearTimeout(_01_predictSpinnerTimer);
-     blurOverlay.style.display = 'flex';
-     _01_predictSpinnerTimer = setTimeout(() => {
-      blurOverlay.style.display = 'none';
-      _01_predictLoading = false;
-      _01_predictSpinnerTimer = null;
-     }, 1500);
-    }
-   }
+   _01_predictLoading = true;
+   if(_01_predictSpinnerTimer) clearTimeout(_01_predictSpinnerTimer);
+   const blurOverlay = panel.querySelector('#_01studios_blur_overlay');
+   if(blurOverlay) blurOverlay.style.display = 'flex';
+   _01_predictSpinnerTimer = setTimeout(() => {
+     if(blurOverlay) blurOverlay.style.display = 'none';
+     _01_predictLoading = false;
+     _01_predictSpinnerTimer = null;
+   }, 1500);
+   triggerPrediction(lastUncovered || [], []);
   }
  });
 
  if(quickMenu) {
- document.getElementById('_01studios_menu_autopress').addEventListener('click', () => { autoPressTiles(); updateAutoStatusIndicator(); quickMenu.style.display = 'none'; });
- document.getElementById('_01studios_menu_autocash').addEventListener('click', () => { toggleAutoCashout(); updateAutoStatusIndicator(); quickMenu.style.display = 'none'; });
- document.getElementById('_01studios_menu_autostart').addEventListener('click', () => { toggleAutoStart(); updateAutoStatusIndicator(); quickMenu.style.display = 'none'; });
+ document.getElementById('_01studios_menu_autopress').addEventListener('click', () => { autoPressTiles(); updateAutoPressBtn(); updateAutoStatusIndicator(); quickMenu.style.display = 'none'; });
+ document.getElementById('_01studios_menu_autocash').addEventListener('click', () => { toggleAutoCashout(); updateAutoCashoutBtn(); updateAutoStatusIndicator(); quickMenu.style.display = 'none'; });
+ document.getElementById('_01studios_menu_autostart').addEventListener('click', () => { toggleAutoStart(); updateAutoStartBtn(); updateAutoStatusIndicator(); quickMenu.style.display = 'none'; });
  // Add hover effects to quick menu buttons
   const quickMenuButtons = document.querySelectorAll('[id^="_01studios_menu_"]');
   quickMenuButtons.forEach(btn => {
@@ -3804,19 +3994,12 @@ if (type === 'settings') {
   });
 
   document.getElementById('_01studios_menu_autopredict').addEventListener('click', () => {
-    _01_autoPredict = !_01_autoPredict;
-    const btn = document.getElementById('_01studios_menu_autopredict');
-    if(_01_autoPredict) {
-      btn.style.background = '#00ff8822';
-      btn.style.borderColor = '#00ff88';
-      btn.style.color = '#00ff88';
-      updateAutoStatusIndicator();
-    } else {
-      btn.style.background = '#161616';
-      btn.style.borderColor = '#222';
-      btn.style.color = '#888';
-      updateAutoStatusIndicator();
-    }
+    settings.autoPredict = (settings.autoPredict === false);
+    _01_autoPredict = settings.autoPredict;
+    saveSettings();
+    updateAutoPredictBtn();
+    updateAutoStatusIndicator();
+    if (settings.autoPredict && gameRunning) triggerPrediction(lastUncovered || [], []);
   });
  quickMenu.addEventListener('click', (e) => e.stopPropagation());
  document.addEventListener('click', (e) => {
@@ -3902,7 +4085,7 @@ if (type === 'settings') {
                         <div style="width:18px;height:18px;border-radius:50%;border:2px solid ${!_unionCoreEnabled?accentColor:'#444'};background:${!_unionCoreEnabled?accentColor:'transparent'};flex-shrink:0;margin-left:12px;display:flex;align-items:center;justify-content:center;">${!_unionCoreEnabled?'<div style="width:8px;height:8px;border-radius:50%;background:#000;"></div>':''}</div>
                     </div>
                 </div>
-                <div style="color:#555;font-size:9px;border-top:1px solid #222;padding-top:8px;">Currently: ${_unionCoreEnabled ? 'Auto Select' : selectedAlgos.length + ' manual algorithms'} - Session: ${analyticsLog.length} games analyzed</div>
+                <div style="color:#555;font-size:9px;border-top:1px solid #222;padding-top:8px;">Currently: ${currentAlgo} · Session: ${analyticsLog.length} games</div>
             `;
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
@@ -4038,8 +4221,10 @@ if (type === 'settings') {
  if (rid) { rid.textContent = 'ROUND ' + uuid.substring(0, 8) + '...'; rid.style.color = accentColor; }
  try { const ridBtn = document.getElementById('_01studios_round_id'); if (ridBtn) ridBtn._fullUUID = uuid; } catch {}
  _sessionGamesPlayed++;
+ _autoPredictFired = false;
  if (settings.autoPredict !== false) {
  const capturedGame = game;
+ _autoPredictFired = true;
  setTimeout(() => {
  currentGameData = capturedGame;
  triggerPrediction([], []);
@@ -4087,6 +4272,20 @@ if (type === 'settings') {
  }, 400);
  }
  } else {
+ // Mid-game re-prediction: only fires once per round (on first reveal below target).
+ // Re-run the engine excluding now-known-safe tiles so remaining highlights use updated odds.
+ if (settings.autoPredict !== false && !autoPressActive && !_minesSequenceLock && !_autoPredictFired) {
+ _autoPredictFired = true;
+ prediction = generatePrediction();
+ uncoveredLocations.forEach(idx => {
+ if (prediction[idx]) {
+ prediction[idx].isRevealed = true;
+ prediction[idx].isSafe = true;
+ prediction[idx].isMine = false;
+ prediction[idx].isSuggestedSafe = false;
+ }
+ });
+ }
  updateGrid();
  injectOverlayStyles();
  updateBoardOverlay(0);
